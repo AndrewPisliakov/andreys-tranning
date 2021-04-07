@@ -36,4 +36,5 @@ exports.browsersync = browsersync;
 exports.images = images;
 exports.cleanimg = cleanimg; 
 
+
 exports.default = parallel(browsersync, startwatch); 
