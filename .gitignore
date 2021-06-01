@@ -1,7 +1,7 @@
-/node_modules
-/.idea
-/.git
-/.vscode
+**/node_modules
+**/.idea
+**/.git
+**/.vscode
 *.meta
 *.tmp
 *.tmp_proj
