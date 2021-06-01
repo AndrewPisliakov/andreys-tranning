@@ -1,3 +1,8 @@
-/node_modules/
-package-lock.json
-/.vscode/
+/node_modules
+/.idea
+/.git
+/.vscode
+*.meta
+*.tmp
+*.tmp_proj
+*.log
