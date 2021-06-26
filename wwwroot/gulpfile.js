@@ -1,21 +1,22 @@
 const gulp = require("gulp"),
-  sass = require("gulp-sass"),
+  browserSync = require("browser-sync").create(),
+  sass = require('gulp-sass')(require('sass')),
   babel = require("gulp-babel"),
   cleanCSS = require("gulp-clean-css"),
   del = require("del"),
   posthtml = require("gulp-posthtml"),
   posthtmlInclude = require("posthtml-include"),
-  /* const rename = require("gulp-rename"), */
   {
-    get
+    get,
+    watch
   } = require("browser-sync");
 
 const settings = {
   server: {
-    path: "src",
+    path: ".",
   },
-  distr: {
-    path: "/distr",
+  src: {
+    path: "/src",
     scss: "/scss/*.scss",
     img: "/img/**/*",
     fonts: "/fonts/**/*",
@@ -31,21 +32,49 @@ const settings = {
     js: "/assets/js",
     html: "",
   },
-  watch: {
-    scss: "/scss/**/*.scss",
-    img: "/img/**/*",
-    fonts: "/fonts/**/*",
-    js: "/js/**/*",
-    html: "/html/**/*.html",
+  distr: {
+    path: "/distr",
+    scss: "/assets/css",
+    img: "/assets/img",
+    fonts: "/assets/fonts",
+    js: "/assets/js",
+    html: "",
   }
 };
 
-function getFullPath(exPath, assetsPath) {
+const distrParallel = gulp.parallel(
+  imgDistr,
+  fontsDistr,
+  stylesDistr,
+  scriptsDistr,
+  htmlDistr
+);
+
+const distr = gulp.series(cleanDistr, distrParallel);
+const serve = gulp.parallel(distr, server);
+
+function getFullPath(exPath = "", assetsPath = "") {
   return settings.server.path + exPath + assetsPath;
 }
 
-function getDistrPath(assetsPath) {
+function getDistrPath(assetsPath = "") {
   return getFullPath(settings.distr.path, assetsPath);
+}
+
+function getDistrPathArray(assetsArray) {
+  return assetsArray.map(m => {
+    return getDistrPath(m);
+  });
+}
+
+function getSrcPath(assetsPath = "") {
+  return getFullPath(settings.src.path, assetsPath);
+}
+
+function getSrcPathArray(assetsArray) {
+  return assetsArray.map(m => {
+    return getSrcPath(m);
+  });
 }
 
 function getBuildPath(assetsPath) {
@@ -58,78 +87,115 @@ function getBuildPathArray(assetsArray) {
   });
 }
 
-function clean() {
-  return del(getBuildPathArray([
-    settings.build.scss,
-    settings.build.img,
-    settings.build.fonts,
-    settings.build.js
+function cleanDistr() {
+  return del(getDistrPathArray([
+    settings.distr.scss,
+    settings.distr.img,
+    settings.distr.fonts,
+    settings.distr.js
   ]));
 }
 
-function img() {
-  return gulp.src(getDistrPath(settings.distr.img))
-    .pipe(gulp.dest(getBuildPath(settings.build.img)));
+function imgDistr() {
+  return gulp.src(getSrcPath(settings.src.img))
+    .pipe(gulp.dest(getDistrPath(settings.distr.img)));
 }
 
-function fonts() {
-  return gulp.src(getDistrPath(settings.distr.fonts))
-    .pipe(gulp.dest(getBuildPath(settings.build.fonts)));
+function fontsDistr() {
+  return gulp.src(getSrcPath(settings.src.fonts))
+    .pipe(gulp.dest(getDistrPath(settings.distr.fonts)));
 }
 
-function styles() {
-  return gulp.src(getDistrPath(settings.distr.scss))
-    .pipe(sass())
-    .pipe(cleanCSS())
-    .pipe(gulp.dest(getBuildPath(settings.build.scss)));
+function stylesDistr() {
+  return gulp.src(getSrcPath(settings.src.scss))
+    .pipe(sass()
+      .on('error', function(err) {
+        console.error(err.message);
+        browserSync.notify(err.message, 3000);
+        this.emit('end');
+      }))
+    .pipe(gulp.dest(getDistrPath(settings.distr.scss)))
+    .pipe(browserSync.stream());
 }
 
-function scripts() {
-  return gulp.src(getDistrPath(settings.distr.js), {
+function scriptsDistr() {
+  return gulp.src(getSrcPath(settings.src.js), {
       sourcemaps: true
     })
     .pipe(babel({
       presets: ["@babel/preset-env"]
     }))
-    .pipe(gulp.dest(getBuildPath(settings.build.js)));
+    .pipe(gulp.dest(getDistrPath(settings.distr.js)));
 }
 
-function html() {
+function htmlDistr() {
   return gulp
-    .src(getDistrPath(settings.distr.html))
+    .src(getSrcPath(settings.src.html))
     .pipe(
       posthtml([
         posthtmlInclude({
-          root: getDistrPath("")
+          root: getSrcPath("")
         })
       ])
       .on('error', function(err) {
         console.error(err.message);
         this.emit('end');
       }))
-    .pipe(gulp.dest(getBuildPath(settings.build.html)));
+    .pipe(gulp.dest(getDistrPath(settings.distr.html)));
 }
 
-/*
- function watch() {
-   gulp.watch(paths.scripts.src, scripts);
-   gulp.watch(paths.styles.src, styles);
- } */
+function server() {
 
-/*
- * Specify if tasks run in series or parallel using `gulp.series` and `gulp.parallel`
- */
-const build = gulp.series(clean, gulp.parallel(html, styles, scripts, img, fonts));
+  return new Promise((resolve, reject) => {
+    try {
+      browserSync
+        .init({
+          server: {
+            baseDir: "./",
+            directory: true
+          },
+          watch: false,
+          port: 5500,
+          notify: false,
+          open: true,
+          startPath: getDistrPath(),
+          cors: false,
+          ui: false
+        });
+        gulp
+    .watch(
+      getSrcPath(settings.src.scss),
+      stylesDistr
+    );
+    gulp
+    .watch(getSrcPathArray(
+        [
+          settings.src.html,
+          settings.src.img,
+          settings.src.fonts,
+          settings.src.js,
+        ]),
+      gulp.series(cleanDistr, distrParallel, refresh)
+    );
+      resolve()
+    } catch (ex) {
+      reject(ex);
+    }
+  });
 
-/*
- * You can use CommonJS `exports` module notation to declare tasks
- */
-exports.clean = clean;
-exports.styles = styles;
-/* exports.scripts = scripts;
-exports.watch = watch; */
-exports.build = build;
-/*
- * Define default task that can be called by just running `gulp` from cli
- */
-exports.default = build;
+}
+
+function refresh() {
+  return new Promise((resolve, reject) => {
+    try {
+      browserSync.reload();
+      resolve();
+    } catch (ex) {
+      reject(ex);
+    }
+  });
+}
+
+exports.distr = distr;
+exports.default = serve;
+exports.serve = serve;
