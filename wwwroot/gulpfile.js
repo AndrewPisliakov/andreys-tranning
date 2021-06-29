@@ -15,6 +15,10 @@ const settings = {
   server: {
     path: ".",
   },
+  watch: {
+    scss: "/scss/**/*.scss",
+    html: "/html/**/*.html",
+  },
   src: {
     path: "/src",
     scss: "/scss/*.scss",
@@ -22,7 +26,6 @@ const settings = {
     fonts: "/fonts/**/*",
     js: "/js/**/*",
     html: "/html/*.html"
-
   },
   build: {
     path: "/build",
@@ -164,13 +167,13 @@ function server() {
         });
         gulp
     .watch(
-      getSrcPath(settings.src.scss),
+      getSrcPath(settings.watch.scss),
       stylesDistr
     );
     gulp
     .watch(getSrcPathArray(
         [
-          settings.src.html,
+          settings.watch.html,
           settings.src.img,
           settings.src.fonts,
           settings.src.js,
